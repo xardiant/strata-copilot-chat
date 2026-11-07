@@ -1,0 +1,57 @@
+{
+  "name": "strata-copilot-chat",
+  "displayName": "Strata for Copilot Chat",
+  "description": "Use models running in Strata (local, OpenAI-compatible API) inside GitHub Copilot Chat, like LM Studio.",
+  "version": "0.1.0",
+  "publisher": "xardiant",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguageModelChatProvider:strata"
+  ],
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "strata",
+        "displayName": "Strata"
+      }
+    ],
+    "configuration": {
+      "title": "Strata",
+      "properties": {
+        "strata.baseUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:47831/v1",
+          "description": "Base URL of the Strata OpenAI-compatible API (the 'API base URL' shown in the Strata app)."
+        },
+        "strata.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional API key. Leave empty when Strata has no key configured."
+        },
+        "strata.maxOutputTokens": {
+          "type": "number",
+          "default": 4096,
+          "minimum": 1,
+          "description": "Maximum tokens Strata may generate per reply."
+        },
+        "strata.contextWindow": {
+          "type": "number",
+          "default": 131072,
+          "minimum": 1024,
+          "description": "Context window (in tokens) reported to Copilot Chat for Strata models."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node test/run-tests.js"
+  }
+}
