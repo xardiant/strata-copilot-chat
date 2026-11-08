@@ -8,15 +8,18 @@ const path = require('path');
 class TextPart { constructor(value) { this.value = value; } }
 class ToolCallPart { constructor(callId, name, input) { this.callId = callId; this.name = name; this.input = input; } }
 class ToolResultPart { constructor(callId, content) { this.callId = callId; this.content = content; } }
+class DataPart { constructor(mimeType, data) { this.mimeType = mimeType; this.data = data; } }
 
 const fakeVscode = {
     LanguageModelTextPart: TextPart,
     LanguageModelToolCallPart: ToolCallPart,
     LanguageModelToolResultPart: ToolResultPart,
+    LanguageModelDataPart: DataPart,
     LanguageModelChatMessageRole: { User: 1, Assistant: 2 },
     LanguageModelChatToolMode: { Auto: 1, Required: 2 },
     EventEmitter: class { constructor() { this.event = () => ({ dispose() {} }); } fire() {} },
     workspace: { getConfiguration: () => ({ get: () => undefined }), onDidChangeConfiguration: () => ({ dispose() {} }) },
+    commands: { registerCommand: () => ({ dispose() {} }) },
     lm: { registerLanguageModelChatProvider: () => ({ dispose() {} }) },
 };
 
@@ -110,6 +113,29 @@ async function collect(lines) {
             'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
         ]);
         assert.deepStrictEqual(reports[0].input, { _raw: '{bad' });
+    });
+
+    await test('image parts convert to OpenAI image_url parts in order', () => {
+        const msgs = [
+            { role: 1, content: [new TextPart('what is this?'), new DataPart('image/png', new Uint8Array([1, 2, 3, 4]))] },
+            { role: 2, content: [new TextPart('It is a test image.'), new DataPart('image/jpeg', new Uint8Array([5, 6, 7]))] },
+        ];
+        const out = ext.toOpenAIMessages(msgs);
+        assert.deepStrictEqual(out[0], {
+            role: 'user',
+            content: ['what is this?', { type: 'image_url', image_url: { url: 'data:image/png;base64,' + Buffer.from([1, 2, 3, 4]).toString('base64') } }],
+        });
+        assert.deepStrictEqual(out[1], {
+            role: 'assistant',
+            content: ['It is a test image.', { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + Buffer.from([5, 6, 7]).toString('base64') } }],
+        });
+    });
+
+    await test('image-only messages are kept and non-image data is ignored', () => {
+        const out = ext.toOpenAIMessages([{ role: 1, content: [new DataPart('text/plain', new Uint8Array([65, 66]))] }]);
+        assert.deepStrictEqual(out, []);
+        const out2 = ext.toOpenAIMessages([{ role: 1, content: [new DataPart('image/png', new Uint8Array([1, 2, 3]))] }]);
+        assert.deepStrictEqual(out2, [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AQID' } }] }]);
     });
 
     console.log(`\n${passed} passed${process.exitCode ? ', some failed' : ''}`);

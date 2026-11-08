@@ -1,0 +1,10 @@
+node_modules/
+_vsix_tmp/
+_icon_preview.png
+_icon_probe.png
+icon_clean.png
+icon_down.png
+_*
+__*
+_test_img.png
+strata-copilot-chat-0.1.0.vsix

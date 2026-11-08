@@ -1,10 +1,21 @@
 {
   "name": "strata-copilot-chat",
   "displayName": "Strata for Copilot Chat",
-  "description": "Use models running in Strata (local, OpenAI-compatible API) inside GitHub Copilot Chat, like LM Studio.",
-  "version": "0.1.0",
+  "description": "Use models running in Strata (local, OpenAI-compatible API) inside GitHub Copilot Chat, like LM Studio. Supports text, tool calling and image input. Known issue: if Strata is closed and reopened, Copilot Chat may not rediscover the provider until the 'Strata (local)' integration is disabled and enabled again, or the Strata model is refreshed with the Strata: Refresh Models command.",
+  "version": "0.1.1",
   "publisher": "xardiant",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xardiant/strata-copilot-chat"
+  },
+  "icon": "icon.png",
+  "keywords": [
+    "strata",
+    "copilot",
+    "local-llm",
+    "image-input"
+  ],
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -14,13 +25,22 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
+    "onStartupFinished",
     "onLanguageModelChatProvider:strata"
   ],
   "contributes": {
     "languageModelChatProviders": [
       {
         "vendor": "strata",
-        "displayName": "Strata"
+        "displayName": "Strata",
+        "icon": "icon.png"
+      }
+    ],
+    "commands": [
+      {
+        "command": "strata.refreshModels",
+        "title": "Strata: Refresh Models",
+        "category": "Strata"
       }
     ],
     "configuration": {

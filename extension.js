@@ -25,15 +25,54 @@ function textOf(part) {
     return typeof part.value === 'string' ? part.value : null;
 }
 
+// VS Code image parts: LanguageModelDataPart (proposed API) wraps { mimeType, data } bytes.
+function imageOf(part) {
+    if (part instanceof vscode.LanguageModelDataPart)
+        return { mimeType: part.mimeType, data: part.data };
+    if (typeof part === 'object' && part !== null && typeof part.mimeType === 'string' && part.data)
+        return { mimeType: part.mimeType, data: part.data };
+    return null;
+}
+
+function toBase64(bytes) {
+    let view = null;
+    if (bytes instanceof Uint8Array) {
+        view = bytes;
+    } else if (ArrayBuffer.isView(bytes)) {
+        view = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    } else if (typeof bytes === 'string') {
+        view = Buffer.from(bytes, 'base64');
+    } else if (bytes && typeof bytes.buffer === 'object' && bytes.offset !== undefined && bytes.size !== undefined) {
+        view = new Uint8Array(bytes.buffer, bytes.offset, bytes.size);
+    } else {
+        return null;
+    }
+    return Buffer.from(view).toString('base64');
+}
+
+function imagePartToOpenAI(part) {
+    const img = imageOf(part);
+    if (!img)
+        return null;
+    if (!img.mimeType.startsWith('image/'))
+        return null;
+    const b64 = toBase64(img.data);
+    if (b64 === null)
+        return null;
+    return { type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${b64}` } };
+}
+
 // Convert VS Code chat messages to OpenAI chat-completions messages.
 function toOpenAIMessages(messages) {
     const out = [];
     for (const msg of messages) {
         const isAssistant = msg.role === vscode.LanguageModelChatMessageRole.Assistant;
         const texts = [];
+        const images = [];
         const toolCalls = [];
         const toolResults = [];
-        for (const part of msg.content) {
+        const parts = typeof msg.content === 'string' ? [msg.content] : msg.content;
+        for (const part of parts) {
             if (part instanceof vscode.LanguageModelToolCallPart) {
                 toolCalls.push({
                     id: part.callId,
@@ -41,25 +80,48 @@ function toOpenAIMessages(messages) {
                     function: { name: part.name, arguments: JSON.stringify(part.input ?? {}) },
                 });
             } else if (part instanceof vscode.LanguageModelToolResultPart) {
-                const text = (part.content || []).map(c => textOf(c) ?? '').join('');
-                toolResults.push({ role: 'tool', tool_call_id: part.callId, content: text });
+                const content = [];
+                for (const c of part.content || []) {
+                    const img = imagePartToOpenAI(c);
+                    if (img) {
+                        content.push(img);
+                        continue;
+                    }
+                    const t = textOf(c) ?? (typeof c === 'string' ? c : '');
+                    if (t.length > 0)
+                        content.push(t);
+                }
+                toolResults.push({
+                    role: 'tool',
+                    tool_call_id: part.callId,
+                    content: content.length === 1 && typeof content[0] === 'string' ? content[0] : content,
+                });
             } else {
+                const img = imagePartToOpenAI(part);
+                if (img) {
+                    images.push(img);
+                    continue;
+                }
                 const t = textOf(part);
                 if (t !== null && t.length > 0)
                     texts.push(t);
+                else if (typeof part === 'string' && part.length > 0)
+                    texts.push(part);
             }
         }
         // OpenAI expects tool results as their own messages, placed before the next turn.
         out.push(...toolResults);
         if (isAssistant) {
-            if (texts.length === 0 && toolCalls.length === 0)
+            if (texts.length === 0 && toolCalls.length === 0 && images.length === 0)
                 continue;
-            const m = { role: 'assistant', content: texts.join('\n') || null };
+            const m = { role: 'assistant' };
+            if (texts.length || images.length)
+                m.content = images.length ? [...texts, ...images] : texts.join('');
             if (toolCalls.length)
                 m.tool_calls = toolCalls;
             out.push(m);
-        } else if (texts.length) {
-            out.push({ role: 'user', content: texts.join('\n') });
+        } else if (texts.length || images.length) {
+            out.push({ role: 'user', content: images.length ? [...texts, ...images] : texts.join('') });
         }
     }
     return out;
@@ -117,7 +179,7 @@ class StrataChatProvider {
             maxOutputTokens: settings.maxOutputTokens,
             capabilities: {
                 toolCalling: true,
-                imageInput: false,
+                imageInput: true,
             },
         }));
     }
@@ -160,7 +222,15 @@ class StrataChatProvider {
     }
 
     async provideTokenCount(_model, text, _token) {
-        const s = typeof text === 'string' ? text : (text.content || []).map(p => textOf(p) ?? '').join('');
+        let parts;
+        if (typeof text === 'string') {
+            parts = [text];
+        } else if (typeof text.content === 'string') {
+            parts = [text.content];
+        } else {
+            parts = text.content || [];
+        }
+        const s = parts.map(p => textOf(p) ?? (typeof p === 'string' ? p : '')).join('');
         return Math.ceil(s.length / 4);
     }
 }
@@ -260,6 +330,11 @@ function activate(context) {
                 provider._onDidChange.fire();
         })
     );
+    // Copilot Chat can keep a stale model list until the provider reports a change.
+    // Re-resolve models once the extension host has finished starting, and expose a manual refresh.
+    const refresh = () => provider._onDidChange.fire();
+    setTimeout(refresh, 0);
+    context.subscriptions.push(vscode.commands.registerCommand('strata.refreshModels', refresh));
 }
 
 function deactivate() {}
