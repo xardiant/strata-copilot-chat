@@ -9,9 +9,50 @@ function getSettings() {
     return {
         baseUrl: (cfg.get('baseUrl') || 'http://127.0.0.1:47831/v1').replace(/\/+$/, ''),
         apiKey: cfg.get('apiKey') || '',
-        maxOutputTokens: cfg.get('maxOutputTokens') || 4096,
-        contextWindow: cfg.get('contextWindow') || 131072,
+        // 0 means "detect from Strata"; a positive value is an explicit override.
+        maxOutputTokens: cfg.get('maxOutputTokens') || 0,
+        contextWindow: cfg.get('contextWindow') || 0,
     };
+}
+
+function apiRoot(baseUrl) {
+    return baseUrl.replace(/\/v1\/?$/, '');
+}
+
+// Strata's local output budget: 30% of the window, at least 4096 and at most 32768.
+function localOutputBudget(context) {
+    const c = Number.isFinite(context) && context > 0 ? Math.floor(context) : 32768;
+    return Math.max(4096, Math.min(32768, Math.floor(c * 0.3)));
+}
+
+async function fetchStrataNative(settings) {
+    const res = await fetch(`${apiRoot(settings.baseUrl)}/api/native`, { headers: headers(settings) });
+    if (!res.ok)
+        throw new Error(`Strata /api/native returned HTTP ${res.status}`);
+    return res.json();
+}
+
+function detectModelLimits(native, modelId, settings) {
+    const instances = Array.isArray(native.instances) ? native.instances : [];
+    const installed = native.installed && Array.isArray(native.installed.models) ? native.installed.models : [];
+    const instance = instances.find(i =>
+        i.apiModelId === modelId || (Array.isArray(i.aliases) && i.aliases.includes(modelId)));
+    const model = installed.find(m => m.model === modelId || m.model_name === modelId);
+    const detectedContext = instance && Number.isFinite(instance.context) && instance.context > 0
+        ? instance.context
+        : model && Number.isFinite(model.context) && model.context > 0
+            ? model.context
+            : model && Number.isFinite(model.contextMax) && model.contextMax > 0
+                ? model.contextMax
+                : 0;
+    const context = settings.contextWindow > 0 ? settings.contextWindow : detectedContext || 32768;
+    const vision = model
+        ? model.visionEnabled === true && model.picturesMissing === false
+        : instance && instance.metrics && instance.metrics.engine
+            ? instance.metrics.engine.images === true
+            : true;
+    const output = settings.maxOutputTokens > 0 ? settings.maxOutputTokens : localOutputBudget(context);
+    return { context: Math.floor(context), output: Math.floor(output), vision };
 }
 
 function headers(settings) {
@@ -168,20 +209,33 @@ class StrataChatProvider {
             console.warn(`Strata: cannot list models at ${settings.baseUrl}: ${err.message}`);
             return [];
         }
-        return models.map(m => ({
-            id: m.id,
-            name: m.id,
-            family: m.id,
-            version: '1.0.0',
-            detail: 'Strata (local)',
-            tooltip: `Runs locally via Strata at ${settings.baseUrl}`,
-            maxInputTokens: settings.contextWindow,
-            maxOutputTokens: settings.maxOutputTokens,
-            capabilities: {
-                toolCalling: true,
-                imageInput: true,
-            },
-        }));
+
+        let native = null;
+        if (!settings.contextWindow || !settings.maxOutputTokens) {
+            try {
+                native = await fetchStrataNative(settings);
+            } catch (err) {
+                console.warn(`Strata: cannot read model limits at ${apiRoot(settings.baseUrl)}/api/native: ${err.message}`);
+            }
+        }
+
+        return models.map(m => {
+            const limits = detectModelLimits(native || {}, m.id, settings);
+            return {
+                id: m.id,
+                name: m.id,
+                family: m.id,
+                version: '1.0.0',
+                detail: 'Strata (local)',
+                tooltip: `Runs locally via Strata at ${settings.baseUrl}`,
+                maxInputTokens: limits.context,
+                maxOutputTokens: limits.output,
+                capabilities: {
+                    toolCalling: true,
+                    imageInput: limits.vision,
+                },
+            };
+        });
     }
 
     async provideLanguageModelChatResponse(model, messages, options, progress, token) {
@@ -189,11 +243,16 @@ class StrataChatProvider {
         const controller = new AbortController();
         const sub = token.onCancellationRequested(() => controller.abort());
         try {
+            const maxTokens = Number.isFinite(model.maxOutputTokens) && model.maxOutputTokens > 0
+                ? model.maxOutputTokens
+                : settings.maxOutputTokens > 0
+                    ? settings.maxOutputTokens
+                    : localOutputBudget(Number.isFinite(model.maxInputTokens) ? model.maxInputTokens : 32768);
             const body = {
                 model: model.id,
                 messages: toOpenAIMessages(messages),
                 stream: true,
-                max_tokens: settings.maxOutputTokens,
+                max_tokens: Math.floor(maxTokens),
             };
             const tools = toOpenAITools(options.tools);
             if (tools) {
@@ -339,4 +398,14 @@ function activate(context) {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, toOpenAIMessages, toOpenAITools, StrataChatProvider, __readStream: readStream };
+module.exports = {
+    activate,
+    deactivate,
+    toOpenAIMessages,
+    toOpenAITools,
+    StrataChatProvider,
+    __readStream: readStream,
+    apiRoot,
+    localOutputBudget,
+    detectModelLimits,
+};

@@ -1,8 +1,8 @@
 {
   "name": "strata-copilot-chat",
   "displayName": "Strata for Copilot Chat",
-  "description": "Use models running in Strata (local, OpenAI-compatible API) inside GitHub Copilot Chat, like LM Studio. Supports text, tool calling and image input. Known issue: if Strata is closed and reopened, Copilot Chat may not rediscover the provider until the 'Strata (local)' integration is disabled and enabled again, or the Strata model is refreshed with the Strata: Refresh Models command.",
-  "version": "0.1.1",
+  "description": "Strata for Copilot Chat: run Strata local OpenAI-compatible models in GitHub Copilot Chat like LM Studio. Text, tool calls, images, auto-detected limits. Built using the LM Studio provider extension. Known issue: closing Strata can hide the provider until the Strata integration is re-enabled or models refreshed.",
+  "version": "0.2.0",
   "publisher": "xardiant",
   "license": "MIT",
   "repository": {
@@ -58,15 +58,15 @@
         },
         "strata.maxOutputTokens": {
           "type": "number",
-          "default": 4096,
-          "minimum": 1,
-          "description": "Maximum tokens Strata may generate per reply."
+          "default": 0,
+          "minimum": 0,
+          "description": "Maximum tokens Strata may generate per reply. 0 detects the limit from Strata; a positive value overrides it."
         },
         "strata.contextWindow": {
           "type": "number",
-          "default": 131072,
-          "minimum": 1024,
-          "description": "Context window (in tokens) reported to Copilot Chat for Strata models."
+          "default": 0,
+          "minimum": 0,
+          "description": "Context window (in tokens) reported to Copilot Chat for Strata models. 0 detects the window from Strata; a positive value overrides it."
         }
       }
     }

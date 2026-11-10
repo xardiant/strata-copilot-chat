@@ -25,8 +25,8 @@ The default endpoint is `http://127.0.0.1:47831/v1` (the "API base URL" shown in
 | --- | --- | --- |
 | `strata.baseUrl` | `http://127.0.0.1:47831/v1` | Strata OpenAI-compatible API base URL |
 | `strata.apiKey` | empty | Optional key; leave empty when Strata has no key |
-| `strata.maxOutputTokens` | `4096` | Maximum reply length |
-| `strata.contextWindow` | `131072` | Context size reported to Copilot |
+| `strata.maxOutputTokens` | `0` (detected) | Maximum reply length; a positive value overrides the detected limit |
+| `strata.contextWindow` | `0` (detected) | Context size reported to Copilot; a positive value overrides the detected window |
 
 ## Features
 
@@ -42,8 +42,10 @@ When Strata is closed, Copilot Chat may not rediscover the **Strata for Copilot 
 ## Notes
 
 - Only models Strata reports as `loaded` are offered.
-- The extension sets `imageInput: true`; if the selected Strata model has no vision support, requests with images fail at the model level.
+- The context window and output budget are detected from Strata's `/api/native` model metadata; 30% of the window is used for replies, at most 32K tokens.
+- `imageInput` is set from the model's own Strata metadata. If the selected Strata model has no vision support, requests with images fail at the model level.
 
 ## Development
 
+- This extension was built using the LM Studio Copilot Chat provider extension ([github.com/yoy123/lmstudio-copilot-provider](https://github.com/yoy123/lmstudio-copilot-provider), published as [DanLambiase/lmstudio-copilot-provider](https://open-vsx.org/extension/DanLambiase/lmstudio-copilot-provider)) as the reference for image input, model refresh, provider registration and VSIX packaging.
 - `npm test` runs the unit tests (stubbed `vscode` module, no VS Code needed).
