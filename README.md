@@ -50,21 +50,21 @@ When Strata is closed, Copilot Chat may not rediscover the **Strata for Copilot 
 The GitHub repository and release are public:
 
 - Repository: <https://github.com/xardiant/strata-copilot-chat>
-- Release: <https://github.com/xardiant/strata-copilot-chat/releases/tag/strata-copilot-chat-0.2.0>
-- VSIX: `strata-copilot-chat-0.2.0.vsix`
+- Release: <https://github.com/xardiant/strata-copilot-chat/releases/tag/strata-copilot-chat-0.2.1>
+- VSIX: `strata-copilot-chat-0.2.1.vsix`
 
 The public VS Code registries require credentials that are not stored in this repository:
 
 ### Open VSX (`xardiant.strata-copilot-chat`)
 
-Version `0.2.0` is published and verified at <https://open-vsx.org/extension/xardiant/strata-copilot-chat>.
+Version `0.2.1` is published and verified at <https://open-vsx.org/extension/xardiant/strata-copilot-chat>.
 
 Re-publishing requires an Eclipse Foundation account linked to the publisher account, a signed **Eclipse Foundation Open VSX Publisher Agreement**, and a short-lived access token from `/user-settings/tokens`. Without that token, the registry rejects uploads. Tokens are per-user credentials and are not stored in this repository.
 
 Once a token is available:
 
 ```bash
-ovsx publish strata-copilot-chat-0.2.0.vsix -p <token>
+ovsx publish strata-copilot-chat-0.2.1.vsix -p <token>
 ```
 
 The `xardiant` namespace is currently unverified in the registry.
@@ -74,7 +74,7 @@ The `xardiant` namespace is currently unverified in the registry.
 Marketplace publishing requires a `VSCE_PAT`:
 
 ```bash
-vsce publish --packagePath strata-copilot-chat-0.2.0.vsix --pat <VSCE_PAT>
+vsce publish --packagePath strata-copilot-chat-0.2.1.vsix --pat <VSCE_PAT>
 ```
 
 Then verify <https://marketplace.visualstudio.com/items?itemName=xardiant.strata-copilot-chat>.

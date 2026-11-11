@@ -2,7 +2,7 @@
   "name": "strata-copilot-chat",
   "displayName": "Strata for Copilot Chat",
   "description": "Strata for Copilot Chat: run Strata local OpenAI-compatible models in GitHub Copilot Chat like LM Studio. Text, tool calls, images, auto-detected limits. Built using the LM Studio provider extension. Known issue: closing Strata can hide the provider until the Strata integration is re-enabled or models refreshed.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "xardiant",
   "license": "MIT",
   "repository": {
