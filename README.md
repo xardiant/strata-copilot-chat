@@ -67,7 +67,7 @@ Once a token is available:
 ovsx publish strata-copilot-chat-0.2.1.vsix -p <token>
 ```
 
-The `xardiant` namespace is currently unverified in the registry.
+The `xardiant` namespace is now verified in the registry, so the published extension is verified too.
 
 ### Visual Studio Marketplace
 
