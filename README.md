@@ -45,6 +45,39 @@ When Strata is closed, Copilot Chat may not rediscover the **Strata for Copilot 
 - The context window and output budget are detected from Strata's `/api/native` model metadata; 30% of the window is used for replies, at most 32K tokens.
 - `imageInput` is set from the model's own Strata metadata. If the selected Strata model has no vision support, requests with images fail at the model level.
 
+## Publishing
+
+The GitHub repository and release are public:
+
+- Repository: <https://github.com/xardiant/strata-copilot-chat>
+- Release: <https://github.com/xardiant/strata-copilot-chat/releases/tag/strata-copilot-chat-0.2.0>
+- VSIX: `strata-copilot-chat-0.2.0.vsix`
+
+The public VS Code registries require credentials that are not stored in this repository:
+
+### Open VSX (`xardiant.strata-copilot-chat`)
+
+Open VSX publishing requires an Eclipse Foundation account linked to the publisher account, a signed **Eclipse Foundation Open VSX Publisher Agreement**, and a short-lived access token from `/user-settings/tokens`. Without that token, the registry rejects uploads and namespace creation.
+
+Once the token is available:
+
+```bash
+ovsx create-namespace xardiant -p <token>
+ovsx publish strata-copilot-chat-0.2.0.vsix -p <token>
+```
+
+Then verify <https://open-vsx.org/extension/xardiant/strata-copilot-chat>.
+
+### Visual Studio Marketplace
+
+Marketplace publishing requires a `VSCE_PAT`:
+
+```bash
+vsce publish --packagePath strata-copilot-chat-0.2.0.vsix --pat <VSCE_PAT>
+```
+
+Then verify <https://marketplace.visualstudio.com/items?itemName=xardiant.strata-copilot-chat>.
+
 ## Development
 
 - This extension was built using the LM Studio Copilot Chat provider extension ([github.com/yoy123/lmstudio-copilot-provider](https://github.com/yoy123/lmstudio-copilot-provider), published as [DanLambiase/lmstudio-copilot-provider](https://open-vsx.org/extension/DanLambiase/lmstudio-copilot-provider)) as the reference for image input, model refresh, provider registration and VSIX packaging.
