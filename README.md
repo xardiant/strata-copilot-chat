@@ -57,16 +57,17 @@ The public VS Code registries require credentials that are not stored in this re
 
 ### Open VSX (`xardiant.strata-copilot-chat`)
 
-Open VSX publishing requires an Eclipse Foundation account linked to the publisher account, a signed **Eclipse Foundation Open VSX Publisher Agreement**, and a short-lived access token from `/user-settings/tokens`. Without that token, the registry rejects uploads and namespace creation.
+Version `0.2.0` is published and verified at <https://open-vsx.org/extension/xardiant/strata-copilot-chat>.
 
-Once the token is available:
+Re-publishing requires an Eclipse Foundation account linked to the publisher account, a signed **Eclipse Foundation Open VSX Publisher Agreement**, and a short-lived access token from `/user-settings/tokens`. Without that token, the registry rejects uploads. Tokens are per-user credentials and are not stored in this repository.
+
+Once a token is available:
 
 ```bash
-ovsx create-namespace xardiant -p <token>
 ovsx publish strata-copilot-chat-0.2.0.vsix -p <token>
 ```
 
-Then verify <https://open-vsx.org/extension/xardiant/strata-copilot-chat>.
+The `xardiant` namespace is currently unverified in the registry.
 
 ### Visual Studio Marketplace
 
