@@ -8,6 +8,9 @@ icon_down.png
 _*.json
 _*.txt
 _*.js
+probe*.json
+st.json
+vsce_*.json
 _*.ts
 _*.html
 _*.png
