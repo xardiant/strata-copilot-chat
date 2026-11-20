@@ -21,7 +21,7 @@ jobs:
         run: npx vsce package --out strata-copilot-chat-0.3.0.vsix
 
       - name: Publish to Open VSX
-        run: npx ovsx publish strata-copilot-chat-0.3.0.vsix --trusted-publishing
+        run: npx ovsx publish strata-copilot-chat-0.3.0.vsix --trusted-publishing --skip-duplicate
 
       - name: Publish to Visual Studio Marketplace
         run: npx vsce publish --oidc --packagePath strata-copilot-chat-0.3.0.vsix --skip-duplicate
