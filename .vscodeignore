@@ -16,3 +16,9 @@ test/**
 .git/**
 _*.py
 .gitignore
+Privat_Text.txt
+*.tgz
+.github/**
+_diff/**
+diff_remote_readme.txt
+vsix-extract/**

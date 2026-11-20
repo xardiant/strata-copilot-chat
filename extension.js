@@ -12,7 +12,42 @@ function getSettings() {
         // 0 means "detect from Strata"; a positive value is an explicit override.
         maxOutputTokens: cfg.get('maxOutputTokens') || 0,
         contextWindow: cfg.get('contextWindow') || 0,
+        reasoningEffort: cfg.get('reasoningEffort') || 'default',
+        reasoningBudgetTokens: cfg.get('reasoningBudgetTokens') || 0,
+        fitMaxTokens: cfg.get('fitMaxTokens') === true,
+        temperature: cfg.get('temperature'),
+        topP: cfg.get('topP'),
+        presencePenalty: cfg.get('presencePenalty'),
+        frequencyPenalty: cfg.get('frequencyPenalty'),
+        seed: cfg.get('seed'),
+        stop: cfg.get('stop') || [],
     };
+}
+
+// Optional Strata request fields; only set values are sent so Strata's own defaults apply otherwise.
+// A reasoning effort chosen in the Copilot model picker overrides the setting.
+function requestOptions(settings, configuration) {
+    const o = {};
+    const effort = (configuration && configuration.reasoningEffort) || settings.reasoningEffort;
+    if (effort && effort !== 'default')
+        o.reasoning_effort = effort;
+    if (settings.reasoningBudgetTokens > 0)
+        o.reasoning_budget_tokens = Math.floor(settings.reasoningBudgetTokens);
+    if (settings.fitMaxTokens)
+        o.fit_max_tokens = true;
+    if (Number.isFinite(settings.temperature))
+        o.temperature = settings.temperature;
+    if (Number.isFinite(settings.topP))
+        o.top_p = settings.topP;
+    if (Number.isFinite(settings.presencePenalty))
+        o.presence_penalty = settings.presencePenalty;
+    if (Number.isFinite(settings.frequencyPenalty))
+        o.frequency_penalty = settings.frequencyPenalty;
+    if (Number.isFinite(settings.seed))
+        o.seed = Math.floor(settings.seed);
+    if (Array.isArray(settings.stop) && settings.stop.length)
+        o.stop = settings.stop.slice(0, 4);
+    return o;
 }
 
 function apiRoot(baseUrl) {
@@ -210,6 +245,24 @@ class StrataChatProvider {
             return [];
         }
 
+        const placeholderModel = {
+            id: 'strata-no-models',
+            name: 'No Strata models loaded',
+            family: 'Strata',
+            version: '1.0.0',
+            detail: 'Load a model in Strata to use this provider',
+            tooltip: `No loaded models found at ${settings.baseUrl}`,
+            maxInputTokens: 32768,
+            maxOutputTokens: 4096,
+            capabilities: {
+                toolCalling: false,
+                imageInput: false,
+            },
+        };
+
+        if (models.length === 0)
+            return [placeholderModel];
+
         let native = null;
         if (!settings.contextWindow || !settings.maxOutputTokens) {
             try {
@@ -219,23 +272,38 @@ class StrataChatProvider {
             }
         }
 
-        return models.map(m => {
-            const limits = detectModelLimits(native || {}, m.id, settings);
-            return {
-                id: m.id,
-                name: m.id,
-                family: m.id,
-                version: '1.0.0',
-                detail: 'Strata (local)',
-                tooltip: `Runs locally via Strata at ${settings.baseUrl}`,
-                maxInputTokens: limits.context,
-                maxOutputTokens: limits.output,
-                capabilities: {
-                    toolCalling: true,
-                    imageInput: limits.vision,
-                },
-            };
-        });
+        return [
+            placeholderModel,
+            ...models.map(m => {
+                const limits = detectModelLimits(native || {}, m.id, settings);
+                return {
+                    id: m.id,
+                    name: m.id,
+                    family: m.id,
+                    version: '1.0.0',
+                    detail: `Strata (local) • ${limits.context.toLocaleString()} ctx${limits.vision ? ' • vision' : ''}`,
+                    tooltip: `${m.id}\nContext: ${limits.context.toLocaleString()} tokens\nOutput: ${limits.output.toLocaleString()} tokens\nVision: ${limits.vision ? 'Yes' : 'No'}\nEndpoint: ${settings.baseUrl}`,
+                    maxInputTokens: Math.max(1024, limits.context - limits.output),
+                    maxContextWindowTokens: limits.context,
+                    maxOutputTokens: limits.output,
+                    capabilities: {
+                        toolCalling: true,
+                        imageInput: limits.vision,
+                    },
+                    configurationSchema: {
+                        properties: {
+                            reasoningEffort: {
+                                type: 'string',
+                                enum: ['none', 'minimal', 'low', 'high', 'xhigh', 'max'],
+                                enumItemLabels: ['None', 'Minimal', 'Low', 'High', 'Extra High', 'Maximum'],
+                                default: 'low',
+                                group: 'navigation',
+                            },
+                        },
+                    },
+                };
+            }),
+        ];
     }
 
     async provideLanguageModelChatResponse(model, messages, options, progress, token) {
@@ -243,6 +311,9 @@ class StrataChatProvider {
         const controller = new AbortController();
         const sub = token.onCancellationRequested(() => controller.abort());
         try {
+            if (model.id === 'strata-no-models')
+                throw new Error('No Strata models are loaded. Load a model in Strata and try again.');
+
             const maxTokens = Number.isFinite(model.maxOutputTokens) && model.maxOutputTokens > 0
                 ? model.maxOutputTokens
                 : settings.maxOutputTokens > 0
@@ -253,6 +324,7 @@ class StrataChatProvider {
                 messages: toOpenAIMessages(messages),
                 stream: true,
                 max_tokens: Math.floor(maxTokens),
+                ...requestOptions(settings, options.modelConfiguration || options.configuration),
             };
             const tools = toOpenAITools(options.tools);
             if (tools) {
@@ -380,6 +452,24 @@ async function readStream(body, progress) {
     flushTools();
 }
 
+// Returns a tick that calls onChange whenever the loaded-model signature changes
+// (Strata stopped/started, a model finished loading or was unloaded). Offline is signature null.
+function watchModels(check, onChange) {
+    let last;
+    return async () => {
+        let sig = null;
+        try {
+            sig = await check();
+        } catch {
+            sig = null;
+        }
+        if (sig !== last) {
+            last = sig;
+            onChange();
+        }
+    };
+}
+
 function activate(context) {
     const provider = new StrataChatProvider();
     context.subscriptions.push(vscode.lm.registerLanguageModelChatProvider(VENDOR, provider));
@@ -394,6 +484,24 @@ function activate(context) {
     const refresh = () => provider._onDidChange.fire();
     setTimeout(refresh, 0);
     context.subscriptions.push(vscode.commands.registerCommand('strata.refreshModels', refresh));
+
+    // Auto reconnect: re-announce models when Strata restarts or a model becomes ready.
+    let busy = false;
+    const tick = watchModels(
+        async () => (await fetchLoadedModels(getSettings())).map(m => m.id).sort().join('\n'),
+        refresh
+    );
+    const timer = setInterval(async () => {
+        if (busy)
+            return;
+        busy = true;
+        try {
+            await tick();
+        } finally {
+            busy = false;
+        }
+    }, 10000);
+    context.subscriptions.push({ dispose: () => clearInterval(timer) });
 }
 
 function deactivate() {}
@@ -408,4 +516,6 @@ module.exports = {
     apiRoot,
     localOutputBudget,
     detectModelLimits,
+    requestOptions,
+    watchModels,
 };

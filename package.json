@@ -1,8 +1,8 @@
 {
   "name": "strata-copilot-chat",
   "displayName": "Strata for Copilot Chat",
-  "description": "Strata for Copilot Chat: run Strata local OpenAI-compatible models in GitHub Copilot Chat like LM Studio. Text, tool calls, images, auto-detected limits. Built using the LM Studio provider extension. Known issue: closing Strata can hide the provider until the Strata integration is re-enabled or models refreshed.",
-  "version": "0.2.1",
+  "description": "Strata for Copilot Chat: run Strata local OpenAI-compatible models in GitHub Copilot Chat like LM Studio. Text, tool calls, images, reasoning effort, auto-detected limits and automatic reconnect when Strata restarts. Built using the LM Studio provider extension.",
+  "version": "0.3.0",
   "publisher": "xardiant",
   "license": "MIT",
   "repository": {
@@ -67,6 +67,64 @@
           "default": 0,
           "minimum": 0,
           "description": "Context window (in tokens) reported to Copilot Chat for Strata models. 0 detects the window from Strata; a positive value overrides it."
+        },
+        "strata.reasoningEffort": {
+          "type": "string",
+          "default": "default",
+          "enum": ["default", "none", "minimal", "low", "high", "xhigh", "max"],
+          "description": "Reasoning effort sent to Strata. 'default' leaves it to Strata."
+        },
+        "strata.reasoningBudgetTokens": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Maximum tokens the model may spend on reasoning. 0 leaves it to Strata."
+        },
+        "strata.fitMaxTokens": {
+          "type": "boolean",
+          "default": false,
+          "description": "Let Strata shrink max_tokens to fit the remaining context instead of rejecting long requests."
+        },
+        "strata.temperature": {
+          "type": ["number", "null"],
+          "default": null,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Sampling temperature. Leave empty to use Strata's default."
+        },
+        "strata.topP": {
+          "type": ["number", "null"],
+          "default": null,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Nucleus sampling (top_p). Leave empty to use Strata's default."
+        },
+        "strata.presencePenalty": {
+          "type": ["number", "null"],
+          "default": null,
+          "minimum": -2,
+          "maximum": 2,
+          "description": "Presence penalty sent to Strata."
+        },
+        "strata.frequencyPenalty": {
+          "type": ["number", "null"],
+          "default": null,
+          "minimum": -2,
+          "maximum": 2,
+          "description": "Frequency penalty sent to Strata."
+        },
+        "strata.seed": {
+          "type": ["number", "null"],
+          "default": null,
+          "minimum": 0,
+          "description": "Seed used for repeatable generations."
+        },
+        "strata.stop": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "maxItems": 4,
+          "description": "Up to 4 stop sequences."
         }
       }
     }

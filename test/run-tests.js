@@ -138,5 +138,40 @@ async function collect(lines) {
         assert.deepStrictEqual(out2, [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AQID' } }] }]);
     });
 
+    await test('request options send only set values and picker effort overrides the setting', () => {
+        const base = { reasoningEffort: 'default', reasoningBudgetTokens: 0, fitMaxTokens: false, temperature: undefined, topP: null, presencePenalty: null, frequencyPenalty: null, seed: null, stop: [] };
+        assert.deepStrictEqual(ext.requestOptions(base), {});
+        const set = { reasoningEffort: 'low', reasoningBudgetTokens: 512.7, fitMaxTokens: true, temperature: 0, topP: 0.9, presencePenalty: 1.1, frequencyPenalty: -0.5, seed: 123.9, stop: ['a', 'b', 'c', 'd', 'e'] };
+        assert.deepStrictEqual(ext.requestOptions(set), {
+            reasoning_effort: 'low',
+            reasoning_budget_tokens: 512,
+            fit_max_tokens: true,
+            temperature: 0,
+            top_p: 0.9,
+            presence_penalty: 1.1,
+            frequency_penalty: -0.5,
+            seed: 123,
+            stop: ['a', 'b', 'c', 'd'],
+        });
+        assert.strictEqual(ext.requestOptions(set, { reasoningEffort: 'max' }).reasoning_effort, 'max');
+    });
+
+    await test('model watcher refreshes on restart, model load and unload only', async () => {
+        const seq = ['m1', 'm1', new Error('offline'), new Error('offline'), 'm1', 'm1\nm2', 'm1'];
+        let i = 0;
+        let changes = 0;
+        const tick = ext.watchModels(async () => {
+            const v = seq[i++];
+            if (v instanceof Error)
+                throw v;
+            return v;
+        }, () => changes++);
+        const expected = [1, 1, 2, 2, 3, 4, 5];
+        for (const want of expected) {
+            await tick();
+            assert.strictEqual(changes, want);
+        }
+    });
+
     console.log(`\n${passed} passed${process.exitCode ? ', some failed' : ''}`);
 })();
